@@ -43,17 +43,16 @@ void Renderer::Render()
 	//Lock BackBuffer
 	SDL_LockSurface(m_pBackBuffer);
 
-	// Vertices in NDC
-	std::vector vertices{
-		Vertex{ Vector3( 0.f,   0.5f, 0.f), ColorRGB{1, 0, 0} },
-		Vertex{ Vector3( 0.5f, -0.5f, 0.f), ColorRGB{0, 1, 0} },
-		Vertex{ Vector3(-0.5f, -0.5f, 0.f), ColorRGB{0, 0, 1} },
+	const std::vector<Vertex> verticesWorld
+	{
+		{ { 0.f,   4.f, 2.f }, { 1.f, 0.f, 0.f } },
+		{ { 3.f,  -2.f, 2.f }, { 0.f, 1.f, 0.f } },
+		{ { -3.f, -2.f, 2.f }, { 0.f, 0.f, 1.f } },
 	};
 
-	for (size_t i{ 0 }; i < vertices.size(); ++i)
-	{
-		vertices[i].position = NdcToScreen(vertices[i].position).ToVector3();
-	}
+	std::vector<Vertex> verticesScreen{};
+	WorldToScreen(verticesWorld, verticesScreen);
+
 
 	//RENDER LOGIC
 	for (int px{}; px < m_Width; ++px)
@@ -63,19 +62,25 @@ void Renderer::Render()
 			const Vector2 screenPos{ static_cast<float>(px) + 0.5f, static_cast<float>(py) + 0.5f };
 			ColorRGB finalColor{};
 
-			const GeometryUtils::TriResult res{
-				GeometryUtils::HitTest_ScreenTriangle(screenPos,
-				vertices[0], vertices[1], vertices[2])
-			};
-
-			if (res.hit)
+			if (verticesScreen.size() >= 3)
 			{
-				finalColor = {
-					res.w0 * vertices[0].color +
-					res.w1 * vertices[1].color +
-					res.w2 * vertices[2].color
+				const GeometryUtils::TriResult res{
+				GeometryUtils::HitTest_ScreenTriangle(screenPos,
+				verticesScreen[0], verticesScreen[1], verticesScreen[2])
 				};
+
+				if (res.hit)
+				{
+					finalColor = {
+						res.w0 * verticesScreen[0].color +
+						res.w1 * verticesScreen[1].color +
+						res.w2 * verticesScreen[2].color
+					};
+				}
 			}
+
+
+			
 
 			//Update Color in Buffer
 			finalColor.MaxToOne();
@@ -95,16 +100,36 @@ void Renderer::Render()
 	SDL_UpdateWindowSurface(m_pWindow);
 }
 
-void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_in, std::vector<Vertex>& vertices_out) const
+void Renderer::WorldToScreen(const std::vector<Vertex>& inVertices, std::vector<Vertex>& outVertices) const
 {
-	//Todo > W1 Projection Stage
+	const float aspectRatio{ static_cast<float>(m_Width) / static_cast<float>(m_Height) };
+
+	outVertices.reserve(inVertices.size());
+	for (size_t i{ 0 }; i < inVertices.size(); ++i)
+	{
+		const Vector3 view{ m_Camera.viewMatrix.TransformPoint(inVertices[i].position) };
+
+		if (view.z < 0.f) continue;
+
+		// Perspective Divide
+		float projectedX{ view.x / view.z };
+		float projectedY{ view.y / view.z };
+
+		projectedX = projectedX / (aspectRatio * m_Camera.fov);
+		projectedY = projectedY / m_Camera.fov;
+
+		const Vector3 projected{ projectedX, projectedY, view.z };
+
+		outVertices.emplace_back(Vertex{ NdcToScreen(projected), inVertices[i].color });
+	}
 }
 
-Vector2 Renderer::NdcToScreen(Vector3 ndc) const
+Vector3 Renderer::NdcToScreen(Vector3 ndc) const
 {
 	return {
 		(ndc.x + 1.f) / 2.f * static_cast<float>(m_Width),
-		(1.f - ndc.y) / 2.f * static_cast<float>(m_Height)
+		(1.f - ndc.y) / 2.f * static_cast<float>(m_Height),
+		0
 	};
 }
 

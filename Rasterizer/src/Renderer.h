@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Camera.h"
+#include "DataTypes.h"
 
 struct SDL_Window;
 struct SDL_Surface;
@@ -32,11 +33,13 @@ namespace dae
 
 		bool SaveBufferToImage() const;
 
-		void VertexTransformationFunction(const std::vector<Vertex>& vertices_in, std::vector<Vertex>& vertices_out) const;
+		void WorldToScreen(const std::vector<Vertex>& inVertices, std::vector<Vertex>& outVertices) const;
 
-		Vector2 NdcToScreen(Vector3 ndc) const;
+		Vector3 NdcToScreen(Vector3 ndc) const;
 
 	private:
+		std::vector<Vertex> m_WorldVertices{};
+
 		SDL_Window* m_pWindow{};
 
 		SDL_Surface* m_pFrontBuffer{ nullptr };

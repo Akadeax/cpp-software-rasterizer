@@ -13,7 +13,7 @@ namespace dae
 		struct TriResult
 		{
 			bool hit{ false };
-			float w0{}, w1{}, w2{};
+			float w0{ 1 }, w1{ 1 }, w2{ 1 };
 		};
 
 		inline TriResult HitTest_ScreenTriangle(Vector2 screenPos, Vertex v0, Vertex v1, Vertex v2)
@@ -25,7 +25,7 @@ namespace dae
 			const float w2{ std::abs(Vector2::Cross(screenPos - v0.position.ToVector2(), (v1.position - v0.position).ToVector2())) };
 
 			const float totalArea{ w0 + w1 + w2 };
-			return { AreEqual(totalArea, triArea), w0 / totalArea, w1 / totalArea, w2 / totalArea };
+			return { AreEqual(totalArea, triArea, 1.f), w0 / totalArea, w1 / totalArea, w2 / totalArea };
 		}
 	}
 

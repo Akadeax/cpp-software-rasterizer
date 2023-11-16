@@ -33,6 +33,9 @@ namespace dae
 		Matrix invViewMatrix{};
 		Matrix viewMatrix{};
 
+		float cameraRotationSpeed{ 1.f };
+		float cameraTranslationSpeed{ 5.f };
+
 		void Initialize(float _fovAngle = 90.f, Vector3 _origin = {0.f,0.f,0.f})
 		{
 			fovAngle = _fovAngle;
@@ -41,12 +44,19 @@ namespace dae
 			origin = _origin;
 		}
 
+		// World to Camera transformation
 		void CalculateViewMatrix()
 		{
-			//TODO W1
-			//ONB => invViewMatrix
-			//Inverse(ONB) => ViewMatrix
+			const Matrix rotation{ Matrix::CreateRotation(totalPitch, totalYaw, 0.f) };
 
+			forward = rotation.TransformVector(Vector3::UnitZ);
+			right = Vector3::Cross(Vector3::UnitY, forward).Normalized();
+			up = Vector3::Cross(forward, right).Normalized();
+
+			invViewMatrix = Matrix(right, up, forward, origin);
+			viewMatrix = invViewMatrix.Inverse();
+
+			// Maybe implement as:
 			//ViewMatrix => Matrix::CreateLookAtLH(...) [not implemented yet]
 			//DirectX Implementation => https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dxmatrixlookatlh
 		}
@@ -61,10 +71,63 @@ namespace dae
 
 		void Update(Timer* pTimer)
 		{
-			const float deltaTime = pTimer->GetElapsed();
+			const float deltaTime{ pTimer->GetElapsed() };
 
-			//Camera Update Logic
-			//...
+			// Keyboard Input
+			const uint8_t* pKeyboardState{ SDL_GetKeyboardState(nullptr) };
+
+			// Mouse Input
+			int mouseX{}, mouseY{};
+			const uint32_t mouseState{ SDL_GetRelativeMouseState(&mouseX, &mouseY) };
+
+			const bool leftMouse{ (mouseState & SDL_BUTTON(1)) != 0 };
+			const bool rightMouse{ (mouseState & SDL_BUTTON(3)) != 0 };
+
+			// == Translation ==
+			// WASD
+			if (pKeyboardState[SDL_SCANCODE_W])
+			{
+				origin += forward * cameraTranslationSpeed * deltaTime;
+			}
+			else if (pKeyboardState[SDL_SCANCODE_S])
+			{
+				origin -= forward * cameraTranslationSpeed * deltaTime;
+			}
+			if (pKeyboardState[SDL_SCANCODE_D])
+			{
+				origin += right * cameraTranslationSpeed * deltaTime;
+			}
+			else if (pKeyboardState[SDL_SCANCODE_A])
+			{
+				origin -= right * cameraTranslationSpeed * deltaTime;
+			}
+
+			// LMB + MouseY
+			if (leftMouse && !rightMouse && mouseY != 0)
+			{
+				origin -= forward * mouseY * cameraTranslationSpeed * deltaTime;
+			}
+			// LMB + RMB + MouseY
+			if (leftMouse && rightMouse && mouseY != 0)
+			{
+				origin += Vector3::UnitY * mouseY * cameraTranslationSpeed * deltaTime;
+			}
+
+			// Rotation
+			if (leftMouse && !rightMouse && mouseX != 0)
+			{
+				totalYaw += cameraRotationSpeed * mouseX * deltaTime;
+			}
+			else if (!leftMouse && rightMouse)
+			{
+				totalYaw += cameraRotationSpeed * mouseX * deltaTime;
+				totalPitch -= cameraRotationSpeed * mouseY * deltaTime;
+			}
+
+			if (pKeyboardState[SDL_SCANCODE_SPACE])
+			{
+				totalYaw += cameraRotationSpeed * deltaTime;
+			}
 
 			//Update Matrices
 			CalculateViewMatrix();
