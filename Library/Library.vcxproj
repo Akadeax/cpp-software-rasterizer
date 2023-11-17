@@ -29,6 +29,7 @@
     <ClInclude Include="src\Timer.h" />
     <ClInclude Include="src\Utils.h" />
     <ClInclude Include="src\Vector2.h" />
+    <ClInclude Include="src\Vector2i.h" />
     <ClInclude Include="src\Vector3.h" />
     <ClInclude Include="src\Vector4.h" />
   </ItemGroup>
@@ -37,6 +38,7 @@
     <ClCompile Include="src\Texture.cpp" />
     <ClCompile Include="src\Timer.cpp" />
     <ClCompile Include="src\Vector2.cpp" />
+    <ClCompile Include="src\Vector2i.cpp" />
     <ClCompile Include="src\Vector3.cpp" />
     <ClCompile Include="src\Vector4.cpp" />
   </ItemGroup>

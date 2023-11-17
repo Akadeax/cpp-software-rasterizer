@@ -33,7 +33,7 @@ namespace dae
 		Matrix invViewMatrix{};
 		Matrix viewMatrix{};
 
-		float cameraRotationSpeed{ 1.f };
+		float cameraRotationSpeed{ 0.02f };
 		float cameraTranslationSpeed{ 5.f };
 
 		void Initialize(float _fovAngle = 90.f, Vector3 _origin = {0.f,0.f,0.f})
@@ -116,12 +116,12 @@ namespace dae
 			// Rotation
 			if (leftMouse && !rightMouse && mouseX != 0)
 			{
-				totalYaw += cameraRotationSpeed * mouseX * deltaTime;
+				totalYaw += cameraRotationSpeed * mouseX;
 			}
 			else if (!leftMouse && rightMouse)
 			{
-				totalYaw += cameraRotationSpeed * mouseX * deltaTime;
-				totalPitch -= cameraRotationSpeed * mouseY * deltaTime;
+				totalYaw += cameraRotationSpeed * mouseX;
+				totalPitch -= cameraRotationSpeed * mouseY;
 			}
 
 			if (pKeyboardState[SDL_SCANCODE_SPACE])

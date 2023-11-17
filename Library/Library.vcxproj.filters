@@ -45,6 +45,9 @@
     <ClInclude Include="src\Utils.h">
       <Filter>Misc</Filter>
     </ClInclude>
+    <ClInclude Include="src\Vector2i.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Matrix.cpp">
@@ -64,6 +67,9 @@
     </ClCompile>
     <ClCompile Include="src\Timer.cpp">
       <Filter>Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Vector2i.cpp">
+      <Filter>Math</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
