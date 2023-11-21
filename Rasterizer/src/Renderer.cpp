@@ -50,15 +50,15 @@ void Renderer::Render()
 	{
 		Mesh{
 			std::vector<Vertex>{
-			{ { -3.f,  3.f, -2.f } },
-			{ { 0.f,  3.f, -2.f } },
-			{ { 3.f,  3.f, -2.f } },
-			{ { -3.f,  0.f, -2.f } },
-			{ { 0.f,  0.f, -2.f } },
-			{ { 3.f,  0.f, -2.f } },
-			{ { -3.f,  -3.f, -2.f } },
-			{ { 0.f,  -3.f, -2.f } },
-			{ { 3.f,  -3.f, -2.f } },
+			{ { -3.f,  3.f, -2.f }, {}, { 0.f, 0.f } },
+			{ { 0.f,  3.f, -2.f }, {}, { 0.5f, 0.f } },
+			{ { 3.f,  3.f, -2.f }, {}, { 1.f, 0.f } },
+			{ { -3.f,  0.f, -2.f }, {}, { 0.f, 0.5f } },
+			{ { 0.f,  0.f, -2.f }, {}, { 0.5f, 0.5f } },
+			{ { 3.f,  0.f, -2.f }, {}, { 1.f, 0.5f } },
+			{ { -3.f,  -3.f, -2.f }, {}, { 0.f, 1.f } },
+			{ { 0.f,  -3.f, -2.f }, {}, { 0.5f, 1.f } },
+			{ { 3.f,  -3.f, -2.f }, {}, { 1.f, 1.f } },
 			},
 			//std::vector<uint32_t>{
 			//	3,0,1, 1,4,3, 4,1,2,
@@ -104,24 +104,33 @@ void Renderer::Render()
 			break;
 
 		case PrimitiveTopology::TriangleStrip:
+
 			bool clockwise{ true };
 			for (size_t i{ 0 }; i < mesh.indices.size() - 2; ++i)
 			{
+				Vertex& v0{ meshVerticesScreen[mesh.indices[i + 0]] };
+				Vertex& v1{ meshVerticesScreen[mesh.indices[i + 1]] };
+				Vertex& v2{ meshVerticesScreen[mesh.indices[i + 2]] };
+
+				if (
+					v0.position == v1.position ||
+					v1.position == v2.position ||
+					v0.position == v2.position)
+				{
+					continue;
+				}
+
 				if (clockwise)
 				{
 					RenderTri(
-						meshVerticesScreen[mesh.indices[i + 0]],
-						meshVerticesScreen[mesh.indices[i + 1]],
-						meshVerticesScreen[mesh.indices[i + 2]],
+						v0, v1, v2,
 						depthBuffer
 					);
 				}
 				else
 				{
 					RenderTri(
-						meshVerticesScreen[mesh.indices[i + 2]],
-						meshVerticesScreen[mesh.indices[i + 1]],
-						meshVerticesScreen[mesh.indices[i + 0]],
+						v2, v1, v0,
 						depthBuffer
 					);
 				}
@@ -159,7 +168,7 @@ void Renderer::WorldToScreen(const std::vector<Vertex>& inVertices, std::vector<
 
 		const Vector3 projected{ projectedX, projectedY, view.z };
 
-		outVertices.emplace_back(Vertex{ NdcToScreen(projected), inVertices[i].color });
+		outVertices.emplace_back(Vertex{ NdcToScreen(projected), inVertices[i].color, inVertices[i].uv });
 	}
 }
 
@@ -186,6 +195,8 @@ void Renderer::RenderTri(const Vertex& v0, const Vertex& v1, const Vertex& v2, f
 		m_Width, m_Height
 	) };
 
+	Texture* pTex{ Texture::LoadFromFile("Resources/uv_grid_2.png") };
+
 
 	for (int px{ bound.topLeft.x }; px < bound.bottomRight.x; ++px)
 	{
@@ -203,10 +214,18 @@ void Renderer::RenderTri(const Vertex& v0, const Vertex& v1, const Vertex& v2, f
 			{
 				const int pixelIndex{ px + py * m_Width };
 
+				//const float hitDepth{
+				//	res.w0 * v0.position.z +
+				//	res.w1 * v1.position.z +
+				//	res.w2 * v2.position.z
+				//};
 				const float hitDepth{
-					res.w0 * v0.position.z +
-					res.w1 * v1.position.z +
-					res.w2 * v2.position.z
+					1.f / 
+					(
+						(1.f / v0.position.z * res.w0) +
+						(1.f / v1.position.z * res.w1) +
+						(1.f / v2.position.z * res.w2)
+					)
 				};
 
 				// Depth test
@@ -214,13 +233,15 @@ void Renderer::RenderTri(const Vertex& v0, const Vertex& v1, const Vertex& v2, f
 
 				depthBuffer[pixelIndex] = hitDepth;
 
-
-				finalColor = {
-					res.w0 * v0.color +
-					res.w1 * v1.color +
-					res.w2 * v2.color
+				const Vector2 uvCoords{
+					(
+						(v0.uv / v0.position.z * res.w0) +
+						(v1.uv / v1.position.z * res.w1) +
+						(v2.uv / v2.position.z * res.w2)
+					) * hitDepth
 				};
 
+				finalColor = pTex->Sample(uvCoords);
 
 				//Update Color in Buffer
 				finalColor.MaxToOne();
@@ -234,6 +255,8 @@ void Renderer::RenderTri(const Vertex& v0, const Vertex& v1, const Vertex& v2, f
 
 		}
 	}
+
+	delete pTex;
 }
 
 bool Renderer::SaveBufferToImage() const

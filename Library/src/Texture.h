@@ -5,6 +5,8 @@
 
 namespace dae
 {
+	class TextureLoadFailedException{};
+
 	struct Vector2;
 
 	class Texture
