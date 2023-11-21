@@ -52,5 +52,7 @@ namespace dae
 
 		int m_Width{};
 		int m_Height{};
+
+		void RenderTri(const Vertex& v0, const Vertex& v1, const Vertex& v2, float* depthBuffer) const;
 	};
 }

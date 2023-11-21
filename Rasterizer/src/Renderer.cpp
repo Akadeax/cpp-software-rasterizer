@@ -46,18 +46,35 @@ void Renderer::Render()
 	//Lock BackBuffer
 	SDL_LockSurface(m_pBackBuffer);
 
-	const std::vector<Vertex> verticesWorld
+	const std::vector meshesWorld
 	{
-		{ { 0.f,   4.f, 2.f }, { 1.f, 0.f, 0.f } },
-		{ { 3.f,  -2.f, 2.f }, { 0.f, 1.f, 0.f } },
-		{ { -3.f, -2.f, 2.f }, { 0.f, 0.f, 1.f } },
-		{ { 0.f,   4.f, -22.f }, { 1.f, 0.f, 0.f } },
-		{ { 3.f,  -2.f, -22.f }, { 1.f, 1.f, 0.f } },
-		{ { -3.f, -2.f, -22.f }, { 0.f, 0.f, 1.f } },
+		Mesh{
+			std::vector<Vertex>{
+			{ { -3.f,  3.f, -2.f } },
+			{ { 0.f,  3.f, -2.f } },
+			{ { 3.f,  3.f, -2.f } },
+			{ { -3.f,  0.f, -2.f } },
+			{ { 0.f,  0.f, -2.f } },
+			{ { 3.f,  0.f, -2.f } },
+			{ { -3.f,  -3.f, -2.f } },
+			{ { 0.f,  -3.f, -2.f } },
+			{ { 3.f,  -3.f, -2.f } },
+			},
+			//std::vector<uint32_t>{
+			//	3,0,1, 1,4,3, 4,1,2,
+			//	2,5,4, 6,3,4, 4,7,6,
+			//	7,4,5, 5,8,7,
+			//},
+			//PrimitiveTopology::TriangleList
+			std::vector<uint32_t>{
+				3,0,4,1,5,2,
+				2,6,
+				6,3,7,4,8,5,
+			},
+			PrimitiveTopology::TriangleStrip
+		}
 	};
 
-	std::vector<Vertex> verticesScreen{};
-	WorldToScreen(verticesWorld, verticesScreen);
 
 	const size_t pixelCount{ static_cast<size_t>(m_Width) * static_cast<size_t>(m_Height) };
 	float* depthBuffer{ new float[pixelCount] };
@@ -66,98 +83,52 @@ void Renderer::Render()
 	// Clear screen
 	SDL_FillRect(m_pBackBuffer, nullptr, SDL_MapRGB(m_pBackBuffer->format, 100, 100, 100));
 
-	for (size_t triIndex{ 0 }; triIndex < verticesScreen.size(); triIndex += 3)
+
+	for (const Mesh& mesh : meshesWorld)
 	{
-		if (verticesScreen[triIndex + 0].position.z < 0 ||
-			verticesScreen[triIndex + 1].position.z < 0 ||
-			verticesScreen[triIndex + 2].position.z < 0)
+		std::vector<Vertex> meshVerticesScreen{};
+		WorldToScreen(mesh.vertices, meshVerticesScreen);
+
+		switch (mesh.primitiveTopology)
 		{
-			continue;
-		}
-
-#pragma region calculate bounding box
-		const Vector3& v0Pos{ verticesScreen[triIndex + 0].position };
-		const Vector3& v1Pos{ verticesScreen[triIndex + 1].position };
-		const Vector3& v2Pos{ verticesScreen[triIndex + 2].position };
-
-		// smallest x and y of all vertices
-		Vector2i boundingBoxTopLeft{ Vector2i(
-			static_cast<int>(std::min(v0Pos.x, std::min(v1Pos.x, v2Pos.x))),
-			static_cast<int>(std::min(v0Pos.y, std::min(v1Pos.y, v2Pos.y)))
-		) };
-
-		// largest x and y of all vertices
-		Vector2i boundingBoxBottomRight{ Vector2i(
-			static_cast<int>(std::max(v0Pos.x, std::max(v1Pos.x, v2Pos.x))),
-			static_cast<int>(std::max(v0Pos.y, std::max(v1Pos.y, v2Pos.y)))
-		) };
-
-		boundingBoxTopLeft.x = std::max(boundingBoxTopLeft.x, 0);
-		boundingBoxTopLeft.x = std::min(boundingBoxTopLeft.x, m_Width - 1);
-		boundingBoxTopLeft.y = std::max(boundingBoxTopLeft.y, 0);
-		boundingBoxTopLeft.y = std::min(boundingBoxTopLeft.y, m_Height - 1);
-
-		boundingBoxBottomRight.x = std::max(boundingBoxBottomRight.x, 0);
-		boundingBoxBottomRight.x = std::min(boundingBoxBottomRight.x, m_Width - 1);
-		boundingBoxBottomRight.y = std::max(boundingBoxBottomRight.y, 0);
-		boundingBoxBottomRight.y = std::min(boundingBoxBottomRight.y, m_Height - 1);
-#pragma endregion
-
-		//RENDER LOGIC
-		for (int px{ boundingBoxTopLeft.x }; px < boundingBoxBottomRight.x; ++px)
-		{
-			for (int py{ boundingBoxTopLeft.y }; py < boundingBoxBottomRight.y; ++py)
+		case PrimitiveTopology::TriangleList:
+			for (size_t i{ 0 }; i < mesh.indices.size(); i += 3)
 			{
-				const Vector2 screenPos{ static_cast<float>(px) + 0.5f, static_cast<float>(py) + 0.5f };
-				ColorRGB finalColor{ -1, -1, -1 };
+				RenderTri(
+					meshVerticesScreen[mesh.indices[i + 0]],
+					meshVerticesScreen[mesh.indices[i + 1]],
+					meshVerticesScreen[mesh.indices[i + 2]],
+					depthBuffer
+				);
+			}
+			break;
 
-				const GeometryUtils::TriResult res{
-				GeometryUtils::HitTest_ScreenTriangle(
-					screenPos,
-					verticesScreen[triIndex + 0],
-					verticesScreen[triIndex + 1],
-					verticesScreen[triIndex + 2]
-				)};
-
-				if (res.hit)
+		case PrimitiveTopology::TriangleStrip:
+			bool clockwise{ true };
+			for (size_t i{ 0 }; i < mesh.indices.size() - 2; ++i)
+			{
+				if (clockwise)
 				{
-					const int pixelIndex{ px + py * m_Width };
-
-					Vertex& v0{ verticesScreen[triIndex + 0] };
-					Vertex& v1{ verticesScreen[triIndex + 1] };
-					Vertex& v2{ verticesScreen[triIndex + 2] };
-
-
-					const float hitDepth{
-						res.w0 * v0.position.z +
-						res.w1 * v1.position.z +
-						res.w2 * v2.position.z
-					};
-
-					// Depth test
-					if (depthBuffer[pixelIndex] < hitDepth) continue;
-
-					depthBuffer[pixelIndex] = hitDepth;
-
-
-					finalColor = {
-						res.w0 * v0.color +
-						res.w1 * v1.color +
-						res.w2 * v2.color
-					};
-
-
-					//Update Color in Buffer
-					finalColor.MaxToOne();
-
-					m_pBackBufferPixels[pixelIndex] = SDL_MapRGB(m_pBackBuffer->format,
-						static_cast<uint8_t>(finalColor.r * 255),
-						static_cast<uint8_t>(finalColor.g * 255),
-						static_cast<uint8_t>(finalColor.b * 255)
+					RenderTri(
+						meshVerticesScreen[mesh.indices[i + 0]],
+						meshVerticesScreen[mesh.indices[i + 1]],
+						meshVerticesScreen[mesh.indices[i + 2]],
+						depthBuffer
+					);
+				}
+				else
+				{
+					RenderTri(
+						meshVerticesScreen[mesh.indices[i + 2]],
+						meshVerticesScreen[mesh.indices[i + 1]],
+						meshVerticesScreen[mesh.indices[i + 0]],
+						depthBuffer
 					);
 				}
 
+				clockwise = !clockwise;
 			}
+			break;
 		}
 	}
 
@@ -166,7 +137,7 @@ void Renderer::Render()
 	//@END
 	//Update SDL Surface
 	SDL_UnlockSurface(m_pBackBuffer);
-	SDL_BlitSurface(m_pBackBuffer, 0, m_pFrontBuffer, 0);
+	SDL_BlitSurface(m_pBackBuffer, nullptr, m_pFrontBuffer, nullptr);
 	SDL_UpdateWindowSurface(m_pWindow);
 }
 
@@ -199,6 +170,70 @@ Vector3 Renderer::NdcToScreen(Vector3 ndc) const
 		(1.f - ndc.y) / 2.f * static_cast<float>(m_Height),
 		ndc.z
 	};
+}
+
+void Renderer::RenderTri(const Vertex& v0, const Vertex& v1, const Vertex& v2, float* depthBuffer) const
+{
+	if (v0.position.z < 0 ||
+		v1.position.z < 0 ||
+		v2.position.z < 0)
+	{
+		return;
+	}
+
+	const GeometryUtils::ScreenBoundingBox bound{ GeometryUtils::GetScreenBoundingBox(
+		v0.position, v1.position, v2.position,
+		m_Width, m_Height
+	) };
+
+
+	for (int px{ bound.topLeft.x }; px < bound.bottomRight.x; ++px)
+	{
+		for (int py{ bound.topLeft.y }; py < bound.bottomRight.y; ++py)
+		{
+			const Vector2 screenPos{ static_cast<float>(px) + 0.5f, static_cast<float>(py) + 0.5f };
+			ColorRGB finalColor{ -1, -1, -1 };
+
+			const GeometryUtils::TriResult res{
+			GeometryUtils::HitTest_ScreenTriangle(
+				screenPos, v0, v1, v2
+			) };
+
+			if (res.hit)
+			{
+				const int pixelIndex{ px + py * m_Width };
+
+				const float hitDepth{
+					res.w0 * v0.position.z +
+					res.w1 * v1.position.z +
+					res.w2 * v2.position.z
+				};
+
+				// Depth test
+				if (depthBuffer[pixelIndex] < hitDepth) continue;
+
+				depthBuffer[pixelIndex] = hitDepth;
+
+
+				finalColor = {
+					res.w0 * v0.color +
+					res.w1 * v1.color +
+					res.w2 * v2.color
+				};
+
+
+				//Update Color in Buffer
+				finalColor.MaxToOne();
+
+				m_pBackBufferPixels[pixelIndex] = SDL_MapRGB(m_pBackBuffer->format,
+					static_cast<uint8_t>(finalColor.r * 255),
+					static_cast<uint8_t>(finalColor.g * 255),
+					static_cast<uint8_t>(finalColor.b * 255)
+				);
+			}
+
+		}
+	}
 }
 
 bool Renderer::SaveBufferToImage() const

@@ -16,7 +16,7 @@ namespace dae
 			float w0{ 1 }, w1{ 1 }, w2{ 1 };
 		};
 
-		inline TriResult HitTest_ScreenTriangle(Vector2 screenPos, Vertex v0, Vertex v1, Vertex v2)
+		inline TriResult HitTest_ScreenTriangle(Vector2 screenPos, const Vertex& v0,  const Vertex& v1, const Vertex& v2)
 		{
 			const float triArea{ std::abs(Vector2::Cross(v1.position - v0.position, v2.position - v0.position)) };
 
@@ -26,6 +26,45 @@ namespace dae
 
 			const float totalArea{ w0 + w1 + w2 };
 			return { AreEqual(totalArea, triArea, 1.f), w0 / totalArea, w1 / totalArea, w2 / totalArea };
+		}
+
+		struct ScreenBoundingBox
+		{
+			Vector2i topLeft{};
+			Vector2i bottomRight{};
+		};
+
+		inline ScreenBoundingBox GetScreenBoundingBox(Vector3 v0, Vector3 v1, Vector3 v2, int width, int height)
+		{
+			// smallest x and y of all vertices
+			Vector2i boundingBoxTopLeft{ Vector2i(
+				static_cast<int>(std::min(v0.x, std::min(v1.x, v2.x))),
+				static_cast<int>(std::min(v0.y, std::min(v1.y, v2.y)))
+			) };
+
+			// largest x and y of all vertices
+			Vector2i boundingBoxBottomRight{ Vector2i(
+				static_cast<int>(std::max(v0.x, std::max(v1.x, v2.x))),
+				static_cast<int>(std::max(v0.y, std::max(v1.y, v2.y)))
+			) };
+
+			boundingBoxTopLeft.x = std::max(boundingBoxTopLeft.x, 0);
+			boundingBoxTopLeft.x = std::min(boundingBoxTopLeft.x, width - 1);
+			boundingBoxTopLeft.y = std::max(boundingBoxTopLeft.y, 0);
+			boundingBoxTopLeft.y = std::min(boundingBoxTopLeft.y, height - 1);
+
+			// Offset by 1 in all directions to make sure there's no gaps
+			boundingBoxTopLeft.x -= 1;
+			boundingBoxTopLeft.y -= 1;
+			boundingBoxBottomRight.x += 1;
+			boundingBoxBottomRight.y += 1;
+
+			boundingBoxTopLeft.x = std::max(boundingBoxTopLeft.x, 0);
+			boundingBoxBottomRight.x = std::min(boundingBoxBottomRight.x, width - 1);
+			boundingBoxTopLeft.y = std::max(boundingBoxTopLeft.y, 0);
+			boundingBoxBottomRight.y = std::min(boundingBoxBottomRight.y, height - 1);
+
+			return { boundingBoxTopLeft, boundingBoxBottomRight };
 		}
 	}
 
