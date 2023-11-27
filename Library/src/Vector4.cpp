@@ -5,6 +5,7 @@
 #include "Vector2.h"
 #include "Vector3.h"
 #include <cmath>
+#include <sstream>
 
 #include "MathHelpers.h"
 
@@ -50,9 +51,21 @@ namespace dae
 		return { x,y,z };
 	}
 
+	Vector2 Vector4::ToVector2() const
+	{
+		return { x, y };
+	}
+
 	float Vector4::Dot(const Vector4& v1, const Vector4& v2)
 	{
 		return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w;
+	}
+
+	std::string Vector4::ToString() const
+	{
+		std::stringstream s{};
+		s << "(" << x << " | " << y << " | " << z << " | " << w << ")";
+		return s.str();
 	}
 
 #pragma region Operator Overloads

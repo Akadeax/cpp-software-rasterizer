@@ -22,31 +22,35 @@ Renderer::Renderer(SDL_Window* pWindow) :
 	//Create Buffers
 	m_pFrontBuffer = SDL_GetWindowSurface(pWindow);
 	m_pBackBuffer = SDL_CreateRGBSurface(0, m_Width, m_Height, 32, 0, 0, 0, 0);
-	m_pBackBufferPixels = (uint32_t*)m_pBackBuffer->pixels;
-
-	//m_pDepthBufferPixels = new float[m_Width * m_Height];
+	m_pBackBufferPixels = static_cast<uint32_t*>(m_pBackBuffer->pixels);
 
 	//Initialize Camera
-	m_Camera.Initialize(60.f, { .0f,.0f,-10.f });
+	m_Camera.Initialize(
+		60.f,
+		{ .0f,.0f,-10.f },
+		static_cast<float>(m_Width) / static_cast<float>(m_Height)
+	);
+
+	m_pTex = Texture::LoadFromFile("Resources/uv_grid_2.png");
 }
 
 Renderer::~Renderer()
 {
-	//delete[] m_pDepthBufferPixels;
+	delete m_pTex;
 }
 
-void Renderer::Update(Timer* pTimer)
+void Renderer::Update(const Timer* pTimer)
 {
 	m_Camera.Update(pTimer);
 }
 
-void Renderer::Render()
+void Renderer::Render() const
 {
 	//@START
 	//Lock BackBuffer
 	SDL_LockSurface(m_pBackBuffer);
 
-	const std::vector meshesWorld
+	std::vector meshesWorld
 	{
 		Mesh{
 			std::vector<Vertex>{
@@ -84,20 +88,19 @@ void Renderer::Render()
 	SDL_FillRect(m_pBackBuffer, nullptr, SDL_MapRGB(m_pBackBuffer->format, 100, 100, 100));
 
 
-	for (const Mesh& mesh : meshesWorld)
+	for (Mesh& mesh : meshesWorld)
 	{
-		std::vector<Vertex> meshVerticesScreen{};
-		WorldToScreen(mesh.vertices, meshVerticesScreen);
+		WorldToScreen(mesh);
 
 		switch (mesh.primitiveTopology)
 		{
 		case PrimitiveTopology::TriangleList:
 			for (size_t i{ 0 }; i < mesh.indices.size(); i += 3)
 			{
-				RenderTri(
-					meshVerticesScreen[mesh.indices[i + 0]],
-					meshVerticesScreen[mesh.indices[i + 1]],
-					meshVerticesScreen[mesh.indices[i + 2]],
+				RenderScreenTri(
+					mesh.vertices_out[mesh.indices[i + 0]],
+					mesh.vertices_out[mesh.indices[i + 1]],
+					mesh.vertices_out[mesh.indices[i + 2]],
 					depthBuffer
 				);
 			}
@@ -108,9 +111,9 @@ void Renderer::Render()
 			bool clockwise{ true };
 			for (size_t i{ 0 }; i < mesh.indices.size() - 2; ++i)
 			{
-				Vertex& v0{ meshVerticesScreen[mesh.indices[i + 0]] };
-				Vertex& v1{ meshVerticesScreen[mesh.indices[i + 1]] };
-				Vertex& v2{ meshVerticesScreen[mesh.indices[i + 2]] };
+				Vertex_Out& v0{ mesh.vertices_out[mesh.indices[i + 0]] };
+				Vertex_Out& v1{ mesh.vertices_out[mesh.indices[i + 1]] };
+				Vertex_Out& v2{ mesh.vertices_out[mesh.indices[i + 2]] };
 
 				if (
 					v0.position == v1.position ||
@@ -122,14 +125,14 @@ void Renderer::Render()
 
 				if (clockwise)
 				{
-					RenderTri(
+					RenderScreenTri(
 						v0, v1, v2,
 						depthBuffer
 					);
 				}
 				else
 				{
-					RenderTri(
+					RenderScreenTri(
 						v2, v1, v0,
 						depthBuffer
 					);
@@ -150,53 +153,53 @@ void Renderer::Render()
 	SDL_UpdateWindowSurface(m_pWindow);
 }
 
-void Renderer::WorldToScreen(const std::vector<Vertex>& inVertices, std::vector<Vertex>& outVertices) const
+void Renderer::WorldToScreen(Mesh& mesh) const
 {
-	const float aspectRatio{ static_cast<float>(m_Width) / static_cast<float>(m_Height) };
+	mesh.vertices_out.clear();
+	mesh.vertices_out.reserve(mesh.vertices.size());
 
-	outVertices.reserve(inVertices.size());
-	for (size_t i{ 0 }; i < inVertices.size(); ++i)
+	for (size_t i{ 0 }; i < mesh.vertices.size(); ++i)
 	{
-		const Vector3 view{ m_Camera.viewMatrix.TransformPoint(inVertices[i].position) };
+		// Mesh > World > View > Clipping
+		const Matrix worldViewProjection{ mesh.worldMatrix * m_Camera.viewMatrix * m_Camera.projectionMatrix };
+		Vector4 transformed{ worldViewProjection.TransformPoint({ mesh.vertices[i].position, 1 }) };
 
 		// Perspective Divide
-		float projectedX{ view.x / view.z };
-		float projectedY{ view.y / view.z };
+		transformed.x /= transformed.w;
+		transformed.y /= transformed.w;
+		transformed.z /= transformed.w;
 
-		projectedX = projectedX / (aspectRatio * m_Camera.fov);
-		projectedY = projectedY / m_Camera.fov;
-
-		const Vector3 projected{ projectedX, projectedY, view.z };
-
-		outVertices.emplace_back(Vertex{ NdcToScreen(projected), inVertices[i].color, inVertices[i].uv });
+		// Do Clipping > Image and insert back
+		mesh.vertices_out.emplace_back(Vertex_Out{ NdcToScreen(transformed), mesh.vertices[i].color, mesh.vertices[i].uv });
+		//std::cout << mesh.vertices_out[i].position.ToString() << std::endl;
 	}
 }
 
-Vector3 Renderer::NdcToScreen(Vector3 ndc) const
+Vector4 Renderer::NdcToScreen(Vector4 ndc) const
 {
+	//std::cout << ndc.z << std::endl;
 	return {
 		(ndc.x + 1.f) / 2.f * static_cast<float>(m_Width),
 		(1.f - ndc.y) / 2.f * static_cast<float>(m_Height),
-		ndc.z
+		ndc.z,
+		ndc.w
 	};
 }
 
-void Renderer::RenderTri(const Vertex& v0, const Vertex& v1, const Vertex& v2, float* depthBuffer) const
+void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const Vertex_Out& v2, float* depthBuffer) const
 {
-	if (v0.position.z < 0 ||
-		v1.position.z < 0 ||
-		v2.position.z < 0)
+	if (v0.position.z < 0 || v0.position.z > 1 ||
+	    v1.position.z < 0 || v1.position.z > 1 ||
+	    v2.position.z < 0 || v2.position.z > 1)
 	{
 		return;
 	}
+
 
 	const GeometryUtils::ScreenBoundingBox bound{ GeometryUtils::GetScreenBoundingBox(
 		v0.position, v1.position, v2.position,
 		m_Width, m_Height
 	) };
-
-	Texture* pTex{ Texture::LoadFromFile("Resources/uv_grid_2.png") };
-
 
 	for (int px{ bound.topLeft.x }; px < bound.bottomRight.x; ++px)
 	{
@@ -214,17 +217,13 @@ void Renderer::RenderTri(const Vertex& v0, const Vertex& v1, const Vertex& v2, f
 			{
 				const int pixelIndex{ px + py * m_Width };
 
-				//const float hitDepth{
-				//	res.w0 * v0.position.z +
-				//	res.w1 * v1.position.z +
-				//	res.w2 * v2.position.z
-				//};
+				// position.z holds view depth for all vertices
 				const float hitDepth{
 					1.f / 
 					(
-						(1.f / v0.position.z * res.w0) +
-						(1.f / v1.position.z * res.w1) +
-						(1.f / v2.position.z * res.w2)
+						(1.f / v0.position.w * res.w0) +
+						(1.f / v1.position.w * res.w1) +
+						(1.f / v2.position.w * res.w2)
 					)
 				};
 
@@ -235,13 +234,13 @@ void Renderer::RenderTri(const Vertex& v0, const Vertex& v1, const Vertex& v2, f
 
 				const Vector2 uvCoords{
 					(
-						(v0.uv / v0.position.z * res.w0) +
-						(v1.uv / v1.position.z * res.w1) +
-						(v2.uv / v2.position.z * res.w2)
+						(v0.uv / v0.position.w * res.w0) +
+						(v1.uv / v1.position.w * res.w1) +
+						(v2.uv / v2.position.w * res.w2)
 					) * hitDepth
 				};
 
-				finalColor = pTex->Sample(uvCoords);
+				finalColor = m_pTex->Sample(uvCoords);
 
 				//Update Color in Buffer
 				finalColor.MaxToOne();
@@ -252,11 +251,8 @@ void Renderer::RenderTri(const Vertex& v0, const Vertex& v1, const Vertex& v2, f
 					static_cast<uint8_t>(finalColor.b * 255)
 				);
 			}
-
 		}
 	}
-
-	delete pTex;
 }
 
 bool Renderer::SaveBufferToImage() const

@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 
 namespace dae
 {
@@ -23,7 +24,11 @@ namespace dae
 		Vector2 GetXY() const;
 		Vector3 GetXYZ() const;
 
+		Vector2 ToVector2() const;
+
 		static float Dot(const Vector4& v1, const Vector4& v2);
+
+		std::string ToString() const;
 
 		// operator overloading
 		Vector4 operator*(float scale) const;

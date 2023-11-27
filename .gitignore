@@ -2,3 +2,4 @@ bin/
 packages/
 TempFiles/
 .vs/
+x64/
