@@ -27,38 +27,42 @@ Renderer::Renderer(SDL_Window* pWindow) :
 	//Initialize Camera
 	m_Camera.Initialize(
 		60.f,
-		{ .0f,.0f,-10.f },
+		{ .0f,5.f,-30.f },
 		static_cast<float>(m_Width) / static_cast<float>(m_Height)
 	);
 
+	Mesh tuktuk{};
+
+	Utils::ParseOBJ("Resources/tuktuk.obj", tuktuk.vertices, tuktuk.indices);
 
 	m_SceneMeshes = {
-		Mesh{
-			std::vector<Vertex>{
-			{ { -3.f,  3.f, -2.f }, {}, { 0.f, 0.f } },
-			{ { 0.f,  3.f, -2.f }, {}, { 0.5f, 0.f } },
-			{ { 3.f,  3.f, -2.f }, {}, { 1.f, 0.f } },
-			{ { -3.f,  0.f, -2.f }, {}, { 0.f, 0.5f } },
-			{ { 0.f,  0.f, -2.f }, {}, { 0.5f, 0.5f } },
-			{ { 3.f,  0.f, -2.f }, {}, { 1.f, 0.5f } },
-			{ { -3.f,  -3.f, -2.f }, {}, { 0.f, 1.f } },
-			{ { 0.f,  -3.f, -2.f }, {}, { 0.5f, 1.f } },
-			{ { 3.f,  -3.f, -2.f }, {}, { 1.f, 1.f } },
-			},
-			//std::vector<uint32_t>{
-			//	3,0,1, 1,4,3, 4,1,2,
-			//	2,5,4, 6,3,4, 4,7,6,
-			//	7,4,5, 5,8,7,
-			//},
-			//PrimitiveTopology::TriangleList
-			std::vector<uint32_t>{
-				3,0,4,1,5,2,
-				2,6,
-				6,3,7,4,8,5,
-			},
-			PrimitiveTopology::TriangleStrip,
-			0
-		}
+		tuktuk
+		//Mesh{
+		//	std::vector<Vertex>{
+		//	{ { -3.f,  3.f, -2.f }, {}, { 0.f, 0.f } },
+		//	{ { 0.f,  3.f, -2.f }, {}, { 0.5f, 0.f } },
+		//	{ { 3.f,  3.f, -2.f }, {}, { 1.f, 0.f } },
+		//	{ { -3.f,  0.f, -2.f }, {}, { 0.f, 0.5f } },
+		//	{ { 0.f,  0.f, -2.f }, {}, { 0.5f, 0.5f } },
+		//	{ { 3.f,  0.f, -2.f }, {}, { 1.f, 0.5f } },
+		//	{ { -3.f,  -3.f, -2.f }, {}, { 0.f, 1.f } },
+		//	{ { 0.f,  -3.f, -2.f }, {}, { 0.5f, 1.f } },
+		//	{ { 3.f,  -3.f, -2.f }, {}, { 1.f, 1.f } },
+		//	},
+		//	//std::vector<uint32_t>{
+		//	//	3,0,1, 1,4,3, 4,1,2,
+		//	//	2,5,4, 6,3,4, 4,7,6,
+		//	//	7,4,5, 5,8,7,
+		//	//},
+		//	//PrimitiveTopology::TriangleList
+		//	std::vector<uint32_t>{
+		//		3,0,4,1,5,2,
+		//		2,6,
+		//		6,3,7,4,8,5,
+		//	},
+		//	PrimitiveTopology::TriangleStrip,
+		//	0
+		//}
 	};
 }
 
@@ -88,7 +92,7 @@ void Renderer::Render()
 	// Clear screen
 	SDL_FillRect(m_pBackBuffer, nullptr, SDL_MapRGB(m_pBackBuffer->format, 100, 100, 100));
 
-	AddMaterial("Resources/uv_grid_2.png");
+	AddMaterial("Resources/tuktuk.png");
 
 	for (Mesh& mesh : m_SceneMeshes)
 	{
@@ -179,7 +183,6 @@ void Renderer::WorldToScreen(Mesh& mesh) const
 
 Vector4 Renderer::NdcToScreen(Vector4 ndc) const
 {
-	//std::cout << ndc.z << std::endl;
 	return {
 		(ndc.x + 1.f) / 2.f * static_cast<float>(m_Width),
 		(1.f - ndc.y) / 2.f * static_cast<float>(m_Height),
@@ -207,7 +210,6 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 		v0.position, v1.position, v2.position,
 		m_Width, m_Height
 	) };
-
 	for (int px{ bound.topLeft.x }; px < bound.bottomRight.x; ++px)
 	{
 		for (int py{ bound.topLeft.y }; py < bound.bottomRight.y; ++py)
@@ -234,6 +236,7 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 					)
 				};
 
+
 				// Depth test
 				if (depthBuffer[pixelIndex] < hitDepth) continue;
 
@@ -241,7 +244,7 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 
 				if (m_RenderMode == RenderMode::depth)
 				{
-					const float hitDepthZ{
+					const float nonLinearDepth{
 						1.f /
 						(
 							(1.f / v0.position.z * res.w0) +
@@ -250,8 +253,9 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 						)
 					};
 
-					const float val{ Remap(hitDepthZ, 0.985f, 1, 0, 1) };
-					finalColor = ColorRGB{ val, val, val };
+					float colorDepth{ Remap(nonLinearDepth, 0.85f, 1.f, 0.f, 1.f) };
+					colorDepth = std::clamp(colorDepth, 0.f, 1.f);
+					finalColor = colors::White * std::clamp(colorDepth, 0.f, 1.f);
 				}
 				else if (m_RenderMode == RenderMode::standard)
 				{

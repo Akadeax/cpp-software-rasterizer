@@ -45,10 +45,10 @@ namespace dae
 		uint8_t b{};
 		SDL_GetRGB(pixel, m_pSurface->format, &r, &g, &b);
 
-		return { ColorRGB(
+		return { ColorRGB{
 			static_cast<float>(r) / 255.f,
 			static_cast<float>(g) / 255.f,
 			static_cast<float>(b) / 255.f
-		)};
+		} };
 	}
 }

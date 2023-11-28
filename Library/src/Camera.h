@@ -63,7 +63,7 @@ namespace dae
 				Vector4{ 1.f / (aspectRatio * fov), 0,         0,                                                0 },
 				Vector4{ 0,                         1.f / fov, 0,                                                0 },
 				Vector4{ 0,                         0,         farPlane / (farPlane - nearPlane),                1 },
-				Vector4   { 0,                         0,         -(farPlane * nearPlane) / (farPlane - nearPlane), 0 },
+				Vector4{ 0,                         0,         -(farPlane * nearPlane) / (farPlane - nearPlane), 0 },
 			};
 		}
 
