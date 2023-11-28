@@ -20,7 +20,7 @@ namespace dae
 	class Renderer final
 	{
 	public:
-		enum RenderMode
+		enum class RenderMode
 		{
 			standard, depth
 		};

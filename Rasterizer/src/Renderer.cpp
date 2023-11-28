@@ -190,7 +190,7 @@ Vector4 Renderer::NdcToScreen(Vector4 ndc) const
 
 void Renderer::CycleRenderMode()
 {
-	m_RenderMode = static_cast<RenderMode>((static_cast<int>(m_RenderMode) + 1) % (depth + 1));
+	m_RenderMode = static_cast<RenderMode>((static_cast<int>(m_RenderMode) + 1) % (static_cast<int>(RenderMode::depth) + 1));
 }
 
 void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const Vertex_Out& v2, const Material& mat, float* depthBuffer) const
@@ -239,7 +239,7 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 
 				depthBuffer[pixelIndex] = hitDepth;
 
-				if (m_RenderMode == depth)
+				if (m_RenderMode == RenderMode::depth)
 				{
 					const float hitDepthZ{
 						1.f /
@@ -253,7 +253,7 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 					const float val{ Remap(hitDepthZ, 0.985f, 1, 0, 1) };
 					finalColor = ColorRGB{ val, val, val };
 				}
-				else if (m_RenderMode == standard)
+				else if (m_RenderMode == RenderMode::standard)
 				{
 					const Vector2 uvCoords{
 						(
