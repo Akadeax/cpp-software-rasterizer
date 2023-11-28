@@ -254,7 +254,6 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 					};
 
 					float colorDepth{ Remap(nonLinearDepth, 0.85f, 1.f, 0.f, 1.f) };
-					colorDepth = std::clamp(colorDepth, 0.f, 1.f);
 					finalColor = colors::White * std::clamp(colorDepth, 0.f, 1.f);
 				}
 				else if (m_RenderMode == RenderMode::standard)
