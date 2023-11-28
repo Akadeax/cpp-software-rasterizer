@@ -20,7 +20,12 @@ namespace dae
 	class Renderer final
 	{
 	public:
-		Renderer(SDL_Window* pWindow);
+		enum RenderMode
+		{
+			standard, depth
+		};
+
+		explicit Renderer(SDL_Window* pWindow);
 		~Renderer();
 
 		Renderer(const Renderer&) = delete;
@@ -29,7 +34,7 @@ namespace dae
 		Renderer& operator=(Renderer&&) noexcept = delete;
 
 		void Update(const Timer* pTimer);
-		void Render() const;
+		void Render();
 
 		bool SaveBufferToImage() const;
 
@@ -37,8 +42,11 @@ namespace dae
 
 		Vector4 NdcToScreen(Vector4 ndc) const;
 
+		void CycleRenderMode();
+
 	private:
-		std::vector<Vertex> m_WorldVertices{};
+		std::vector<Mesh> m_SceneMeshes{};
+		std::vector<Material> m_Materials{};
 
 		SDL_Window* m_pWindow{};
 
@@ -51,8 +59,9 @@ namespace dae
 		int m_Width{};
 		int m_Height{};
 
-		const Texture* m_pTex{};
+		void RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const Vertex_Out& v2, const Material& mat, float* depthBuffer) const;
+		size_t AddMaterial(const std::string& texturePath);
 
-		void RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const Vertex_Out& v2, float* depthBuffer) const;
+		RenderMode m_RenderMode{};
 	};
 }

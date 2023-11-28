@@ -31,27 +31,8 @@ Renderer::Renderer(SDL_Window* pWindow) :
 		static_cast<float>(m_Width) / static_cast<float>(m_Height)
 	);
 
-	m_pTex = Texture::LoadFromFile("Resources/uv_grid_2.png");
-}
 
-Renderer::~Renderer()
-{
-	delete m_pTex;
-}
-
-void Renderer::Update(const Timer* pTimer)
-{
-	m_Camera.Update(pTimer);
-}
-
-void Renderer::Render() const
-{
-	//@START
-	//Lock BackBuffer
-	SDL_LockSurface(m_pBackBuffer);
-
-	std::vector meshesWorld
-	{
+	m_SceneMeshes = {
 		Mesh{
 			std::vector<Vertex>{
 			{ { -3.f,  3.f, -2.f }, {}, { 0.f, 0.f } },
@@ -75,10 +56,30 @@ void Renderer::Render() const
 				2,6,
 				6,3,7,4,8,5,
 			},
-			PrimitiveTopology::TriangleStrip
+			PrimitiveTopology::TriangleStrip,
+			0
 		}
 	};
+}
 
+Renderer::~Renderer()
+{
+	for (const Material& mat : m_Materials)
+	{
+		delete mat.pTexture;
+	}
+}
+
+void Renderer::Update(const Timer* pTimer)
+{
+	m_Camera.Update(pTimer);
+}
+
+void Renderer::Render()
+{
+	//@START
+	//Lock BackBuffer
+	SDL_LockSurface(m_pBackBuffer);
 
 	const size_t pixelCount{ static_cast<size_t>(m_Width) * static_cast<size_t>(m_Height) };
 	float* depthBuffer{ new float[pixelCount] };
@@ -87,8 +88,9 @@ void Renderer::Render() const
 	// Clear screen
 	SDL_FillRect(m_pBackBuffer, nullptr, SDL_MapRGB(m_pBackBuffer->format, 100, 100, 100));
 
+	AddMaterial("Resources/uv_grid_2.png");
 
-	for (Mesh& mesh : meshesWorld)
+	for (Mesh& mesh : m_SceneMeshes)
 	{
 		WorldToScreen(mesh);
 
@@ -98,9 +100,10 @@ void Renderer::Render() const
 			for (size_t i{ 0 }; i < mesh.indices.size(); i += 3)
 			{
 				RenderScreenTri(
-					mesh.vertices_out[mesh.indices[i + 0]],
-					mesh.vertices_out[mesh.indices[i + 1]],
-					mesh.vertices_out[mesh.indices[i + 2]],
+					mesh.verticesOut[mesh.indices[i + 0]],
+					mesh.verticesOut[mesh.indices[i + 1]],
+					mesh.verticesOut[mesh.indices[i + 2]],
+					m_Materials[mesh.materialId],
 					depthBuffer
 				);
 			}
@@ -111,9 +114,9 @@ void Renderer::Render() const
 			bool clockwise{ true };
 			for (size_t i{ 0 }; i < mesh.indices.size() - 2; ++i)
 			{
-				Vertex_Out& v0{ mesh.vertices_out[mesh.indices[i + 0]] };
-				Vertex_Out& v1{ mesh.vertices_out[mesh.indices[i + 1]] };
-				Vertex_Out& v2{ mesh.vertices_out[mesh.indices[i + 2]] };
+				Vertex_Out& v0{ mesh.verticesOut[mesh.indices[i + 0]] };
+				Vertex_Out& v1{ mesh.verticesOut[mesh.indices[i + 1]] };
+				Vertex_Out& v2{ mesh.verticesOut[mesh.indices[i + 2]] };
 
 				if (
 					v0.position == v1.position ||
@@ -126,14 +129,14 @@ void Renderer::Render() const
 				if (clockwise)
 				{
 					RenderScreenTri(
-						v0, v1, v2,
+						v0, v1, v2, m_Materials[mesh.materialId],
 						depthBuffer
 					);
 				}
 				else
 				{
 					RenderScreenTri(
-						v2, v1, v0,
+						v2, v1, v0, m_Materials[mesh.materialId],
 						depthBuffer
 					);
 				}
@@ -155,8 +158,8 @@ void Renderer::Render() const
 
 void Renderer::WorldToScreen(Mesh& mesh) const
 {
-	mesh.vertices_out.clear();
-	mesh.vertices_out.reserve(mesh.vertices.size());
+	mesh.verticesOut.clear();
+	mesh.verticesOut.reserve(mesh.vertices.size());
 
 	for (size_t i{ 0 }; i < mesh.vertices.size(); ++i)
 	{
@@ -170,8 +173,7 @@ void Renderer::WorldToScreen(Mesh& mesh) const
 		transformed.z /= transformed.w;
 
 		// Do Clipping > Image and insert back
-		mesh.vertices_out.emplace_back(Vertex_Out{ NdcToScreen(transformed), mesh.vertices[i].color, mesh.vertices[i].uv });
-		//std::cout << mesh.vertices_out[i].position.ToString() << std::endl;
+		mesh.verticesOut.emplace_back(Vertex_Out{ NdcToScreen(transformed), mesh.vertices[i].color, mesh.vertices[i].uv });
 	}
 }
 
@@ -186,7 +188,12 @@ Vector4 Renderer::NdcToScreen(Vector4 ndc) const
 	};
 }
 
-void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const Vertex_Out& v2, float* depthBuffer) const
+void Renderer::CycleRenderMode()
+{
+	m_RenderMode = static_cast<RenderMode>((static_cast<int>(m_RenderMode) + 1) % (depth + 1));
+}
+
+void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const Vertex_Out& v2, const Material& mat, float* depthBuffer) const
 {
 	if (v0.position.z < 0 || v0.position.z > 1 ||
 	    v1.position.z < 0 || v1.position.z > 1 ||
@@ -232,15 +239,32 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 
 				depthBuffer[pixelIndex] = hitDepth;
 
-				const Vector2 uvCoords{
-					(
-						(v0.uv / v0.position.w * res.w0) +
-						(v1.uv / v1.position.w * res.w1) +
-						(v2.uv / v2.position.w * res.w2)
-					) * hitDepth
-				};
+				if (m_RenderMode == depth)
+				{
+					const float hitDepthZ{
+						1.f /
+						(
+							(1.f / v0.position.z * res.w0) +
+							(1.f / v1.position.z * res.w1) +
+							(1.f / v2.position.z * res.w2)
+						)
+					};
 
-				finalColor = m_pTex->Sample(uvCoords);
+					const float val{ Remap(hitDepthZ, 0.985f, 1, 0, 1) };
+					finalColor = ColorRGB{ val, val, val };
+				}
+				else if (m_RenderMode == standard)
+				{
+					const Vector2 uvCoords{
+						(
+							(v0.uv / v0.position.w * res.w0) +
+							(v1.uv / v1.position.w * res.w1) +
+							(v2.uv / v2.position.w * res.w2)
+						) * hitDepth
+					};
+
+					finalColor = mat.pTexture->Sample(uvCoords);
+				}
 
 				//Update Color in Buffer
 				finalColor.MaxToOne();
@@ -253,6 +277,13 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 			}
 		}
 	}
+}
+
+// Returns MaterialID
+size_t Renderer::AddMaterial(const std::string& texturePath)
+{
+	m_Materials.push_back(Material{ Texture::LoadFromFile(texturePath) });
+	return m_Materials.size() - 1;
 }
 
 bool Renderer::SaveBufferToImage() const

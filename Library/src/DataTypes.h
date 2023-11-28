@@ -4,6 +4,8 @@
 
 namespace dae
 {
+	class Texture;
+
 	struct Vertex
 	{
 		Vector3 position{};
@@ -36,7 +38,14 @@ namespace dae
 		std::vector<uint32_t> indices{};
 		PrimitiveTopology primitiveTopology{ PrimitiveTopology::TriangleStrip };
 
-		std::vector<Vertex_Out> vertices_out{};
+		size_t materialId{};
+
+		std::vector<Vertex_Out> verticesOut{};
 		Matrix worldMatrix{};
+	};
+
+	struct Material
+	{
+		Texture* pTexture;
 	};
 }

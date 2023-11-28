@@ -34,12 +34,11 @@ namespace dae
 	ColorRGB Texture::Sample(const Vector2& uv) const
 	{
 		if (uv.x <= 0) return {};
-		int pixelX{ static_cast<int>(m_pSurface->w * uv.x) };
-		int pixelY{ static_cast<int>(m_pSurface->h * uv.y) };
+		const int pixelX{ static_cast<int>(static_cast<float>(m_pSurface->w) * uv.x) };
+		const int pixelY{ static_cast<int>(static_cast<float>(m_pSurface->h) * uv.y)};
 
-		uint32_t* pixels{ (uint32_t*)m_pSurface->pixels };
-
-		uint32_t pixel{ pixels[m_pSurface->w * pixelY + pixelX] };
+		const int pixelIndex{ m_pSurface->w * pixelY + pixelX };
+		const uint32_t pixel{ m_pSurfacePixels[pixelIndex] };
 		
 		uint8_t r{};
 		uint8_t g{};
