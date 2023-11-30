@@ -66,6 +66,11 @@ namespace dae
 
 			return { boundingBoxTopLeft, boundingBoxBottomRight };
 		}
+
+		inline bool CheckRange(float x, float y, float z, int xMax, int yMax, float zMax)
+		{
+			return x >= 0 && x <= xMax && y >= 0 && y <= yMax && z >= 0 && z <= zMax;
+		}
 	}
 
 	namespace Utils

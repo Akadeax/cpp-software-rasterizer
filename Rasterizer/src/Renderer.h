@@ -59,9 +59,19 @@ namespace dae
 		int m_Width{};
 		int m_Height{};
 
-		void RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const Vertex_Out& v2, const Material& mat, float* depthBuffer) const;
+		RenderMode m_RenderMode{};
+
+		void RenderScreenTri(
+			const Vertex_Out& v0,
+			const Vertex_Out& v1,
+			const Vertex_Out& v2,
+			const Material& mat,
+			float* depthBuffer
+		) const;
+
 		size_t AddMaterial(const std::string& texturePath);
 
-		RenderMode m_RenderMode{};
+		ColorRGB Shade(const Vertex_Out& vertex) const;
+
 	};
 }

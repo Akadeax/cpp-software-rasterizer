@@ -58,8 +58,8 @@ namespace dae
 		return v;
 	}
 
-	inline float Remap(float value, float lowStart, float highStart, float lowEnd, float highEnd)
+	inline float Remap(float val, float low, float high)
 	{
-		return lowEnd + (value - lowStart) * (highEnd - lowEnd) / (highStart - lowStart);
+		return (val - low) / (high - low);
 	}
 }
