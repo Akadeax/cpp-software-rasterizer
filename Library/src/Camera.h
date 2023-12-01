@@ -28,8 +28,8 @@ namespace dae
 		Matrix viewMatrix{};
 		Matrix projectionMatrix{};
 
-		float cameraRotationSpeed{ 0.02f };
-		float cameraTranslationSpeed{ 5.f };
+		float cameraRotationSpeed{ 0.04f };
+		float cameraTranslationSpeed{ 25.f };
 
 		float nearPlane{ 1.f };
 		float farPlane{ 1000.f };
@@ -42,6 +42,8 @@ namespace dae
 			origin = _origin;
 
 			aspectRatio = _aspectRatio;
+
+			CalculateProjectionMatrix();
 		}
 
 		// World to Camera transformation
@@ -129,7 +131,6 @@ namespace dae
 
 			//Update Matrices
 			CalculateViewMatrix();
-			CalculateProjectionMatrix(); //Try to optimize this - should only be called once or when fov/aspectRatio changes
 		}
 	};
 }

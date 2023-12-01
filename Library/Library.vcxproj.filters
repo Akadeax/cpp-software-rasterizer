@@ -48,6 +48,9 @@
     <ClInclude Include="src\Vector2i.h">
       <Filter>Math</Filter>
     </ClInclude>
+    <ClInclude Include="src\BRDFs.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Matrix.cpp">

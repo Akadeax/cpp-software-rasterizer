@@ -12,6 +12,7 @@ namespace dae
 
 		Vector3() = default;
 		Vector3(float _x, float _y, float _z);
+		explicit Vector3(float all);
 		Vector3(const Vector3& from, const Vector3& to);
 		Vector3(const Vector4& v);
 
@@ -53,6 +54,7 @@ namespace dae
 		static const Vector3 UnitY;
 		static const Vector3 UnitZ;
 		static const Vector3 Zero;
+		static const Vector3 One;
 	};
 
 	//Global Operators

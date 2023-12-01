@@ -51,6 +51,10 @@ int main(int argc, char* args[])
 	// TODO pTimer->StartBenchmark();
 
 	float printTimer = 0.f;
+
+	float benchmarkTotal{};
+	float benchmarkTimer = 0.f;
+
 	bool isLooping = true;
 	bool takeScreenshot = false;
 	while (isLooping)
@@ -89,10 +93,18 @@ int main(int argc, char* args[])
 		//--------- Timer ---------
 		pTimer->Update();
 		printTimer += pTimer->GetElapsed();
+		benchmarkTimer += pTimer->GetElapsed();
 		if (printTimer >= 1.f)
 		{
 			printTimer = 0.f;
 			std::cout << "dFPS: " << pTimer->GetdFPS() << std::endl;
+			benchmarkTotal += pTimer->GetdFPS();
+		}
+		if (benchmarkTimer >= 11.f)
+		{
+			benchmarkTimer = 0.f;
+			std::cout << "Benchmark: " << (benchmarkTotal / 10.f) << std::endl;
+			benchmarkTotal = 0.f;
 		}
 
 		//Save screenshot after full render

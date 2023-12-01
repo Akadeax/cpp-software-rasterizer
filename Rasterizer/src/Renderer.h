@@ -69,9 +69,14 @@ namespace dae
 			float* depthBuffer
 		) const;
 
-		size_t AddMaterial(const std::string& texturePath);
+		size_t AddMaterial(
+			const std::string& diffuse = "",
+			const std::string& normal = "",
+			const std::string& specular = "",
+			const std::string& gloss = ""
+		);
 
-		ColorRGB Shade(const Vertex_Out& vertex) const;
+		ColorRGB Shade(const Vertex_Out& vertex, const Material& material) const;
 
 	};
 }

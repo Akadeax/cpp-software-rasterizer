@@ -16,6 +16,7 @@ namespace dae
 
 		static Texture* LoadFromFile(const std::string& path);
 		ColorRGB Sample(const Vector2& uv) const;
+		float SampleRed(const Vector2& uv) const;
 
 	private:
 		Texture(SDL_Surface* pSurface);

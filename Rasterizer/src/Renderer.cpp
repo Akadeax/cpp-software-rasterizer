@@ -7,6 +7,7 @@
 
 #include <iostream>
 
+#include "BRDFs.h"
 #include "Maths.h"
 #include "Texture.h"
 #include "Utils.h"
@@ -26,57 +27,47 @@ Renderer::Renderer(SDL_Window* pWindow) :
 
 	//Initialize Camera
 	m_Camera.Initialize(
-		60.f,
-		{ .0f,5.f,-30.f },
+		45.f,
+		{ .0f,0.f,0.f },
 		static_cast<float>(m_Width) / static_cast<float>(m_Height)
 	);
 
-	Mesh tuktuk{};
+	Mesh vehicle{};
+	vehicle.worldMatrix = Matrix::CreateTranslation(0, 0, 50.f);
 
-	Utils::ParseOBJ("Resources/tuktuk.obj", tuktuk.vertices, tuktuk.indices);
+	Utils::ParseOBJ("Resources/vehicle.obj", vehicle.vertices, vehicle.indices);
 
 	m_SceneMeshes = {
-		tuktuk
-		//Mesh{
-		//	std::vector<Vertex>{
-		//	{ { -3.f,  3.f, -2.f }, {}, { 0.f, 0.f } },
-		//	{ { 0.f,  3.f, -2.f }, {}, { 0.5f, 0.f } },
-		//	{ { 3.f,  3.f, -2.f }, {}, { 1.f, 0.f } },
-		//	{ { -3.f,  0.f, -2.f }, {}, { 0.f, 0.5f } },
-		//	{ { 0.f,  0.f, -2.f }, {}, { 0.5f, 0.5f } },
-		//	{ { 3.f,  0.f, -2.f }, {}, { 1.f, 0.5f } },
-		//	{ { -3.f,  -3.f, -2.f }, {}, { 0.f, 1.f } },
-		//	{ { 0.f,  -3.f, -2.f }, {}, { 0.5f, 1.f } },
-		//	{ { 3.f,  -3.f, -2.f }, {}, { 1.f, 1.f } },
-		//	},
-		//	//std::vector<uint32_t>{
-		//	//	3,0,1, 1,4,3, 4,1,2,
-		//	//	2,5,4, 6,3,4, 4,7,6,
-		//	//	7,4,5, 5,8,7,
-		//	//},
-		//	//PrimitiveTopology::TriangleList
-		//	std::vector<uint32_t>{
-		//		3,0,4,1,5,2,
-		//		2,6,
-		//		6,3,7,4,8,5,
-		//	},
-		//	PrimitiveTopology::TriangleStrip,
-		//	0
-		//}
+		vehicle
 	};
+
+	vehicle.materialId = AddMaterial(
+		"Resources/vehicle_diffuse.png",
+		"Resources/vehicle_normal.png",
+		"Resources/vehicle_specular.png",
+		"Resources/vehicle_gloss.png"
+	);
 }
 
 Renderer::~Renderer()
 {
 	for (const Material& mat : m_Materials)
 	{
-		delete mat.pTexture;
+		delete mat.pDiffuse;
+		delete mat.pNormal;
+		delete mat.pSpecular;
+		delete mat.pGloss;
 	}
 }
 
 void Renderer::Update(const Timer* pTimer)
 {
 	m_Camera.Update(pTimer);
+
+	const Matrix translation{ Matrix::CreateTranslation(0, 0, 50.f) };
+	const Matrix rotation{ Matrix::CreateRotationY(pTimer->GetTotal()) };
+
+	m_SceneMeshes[0].worldMatrix = rotation * translation;
 }
 
 void Renderer::Render()
@@ -91,8 +82,6 @@ void Renderer::Render()
 
 	// Clear screen
 	SDL_FillRect(m_pBackBuffer, nullptr, SDL_MapRGB(m_pBackBuffer->format, 100, 100, 100));
-
-	AddMaterial("Resources/tuktuk.png");
 
 	for (Mesh& mesh : m_SceneMeshes)
 	{
@@ -162,13 +151,17 @@ void Renderer::Render()
 
 void Renderer::WorldToScreen(Mesh& mesh) const
 {
-	mesh.verticesOut.clear();
-	mesh.verticesOut.reserve(mesh.vertices.size());
+	if (mesh.verticesOut.size() != mesh.vertices.size())
+	{
+		mesh.verticesOut.clear();
+		mesh.verticesOut.resize(mesh.vertices.size());
+	}
+
+	const Matrix worldViewProjection{ mesh.worldMatrix * m_Camera.viewMatrix * m_Camera.projectionMatrix };
 
 	for (size_t i{ 0 }; i < mesh.vertices.size(); ++i)
 	{
 		// Mesh > World > View > Clipping
-		const Matrix worldViewProjection{ mesh.worldMatrix * m_Camera.viewMatrix * m_Camera.projectionMatrix };
 		Vector4 transformed{ worldViewProjection.TransformPoint({ mesh.vertices[i].position, 1 }) };
 
 		// Perspective Divide
@@ -177,7 +170,7 @@ void Renderer::WorldToScreen(Mesh& mesh) const
 		transformed.z /= transformed.w;
 
 		// Do Clipping > Image and insert back
-		Vertex_Out out{
+		const Vertex_Out out{
 			NdcToScreen(transformed),
 			mesh.vertices[i].color,
 			mesh.vertices[i].uv,
@@ -186,7 +179,7 @@ void Renderer::WorldToScreen(Mesh& mesh) const
 			(mesh.worldMatrix.TransformPoint(mesh.vertices[i].position) - m_Camera.origin).Normalized(),
 		};
 
-		mesh.verticesOut.emplace_back(out);
+		mesh.verticesOut[i] = out;
 	}
 }
 
@@ -323,7 +316,7 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 						interpolatedViewDirection.Normalized()
 					};
 
-					finalColor = Shade(interpolatedVertex);
+					finalColor = Shade(interpolatedVertex, mat);
 				}
 
 				//Update Color in Buffer
@@ -339,18 +332,71 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 	}
 }
 
-// Returns MaterialID
-size_t Renderer::AddMaterial(const std::string& texturePath)
+size_t Renderer::AddMaterial(const std::string& diffuse, const std::string& normal, const std::string& specular,
+	const std::string& gloss)
 {
-	m_Materials.push_back(Material{ Texture::LoadFromFile(texturePath) });
+	Texture* diffuseTexture{ nullptr };
+	if (!diffuse.empty()) diffuseTexture = Texture::LoadFromFile(diffuse);
+
+	Texture* normalTexture{ nullptr };
+	if (!normal.empty()) normalTexture = Texture::LoadFromFile(normal);
+
+	Texture* specularTexture{ nullptr };
+	if (!specular.empty()) specularTexture = Texture::LoadFromFile(specular);
+
+	Texture* glossTexture{ nullptr };
+	if (!gloss.empty()) glossTexture = Texture::LoadFromFile(gloss);
+
+
+	m_Materials.push_back(Material{ diffuseTexture, normalTexture, specularTexture, glossTexture });
 	return m_Materials.size() - 1;
 }
 
-ColorRGB Renderer::Shade(const Vertex_Out& vertex) const
-{
-	Vector3 lightDirection{ .577f, -.577f, .577f };
 
-	return { 0.5f, 0.5f, 0.5f };
+ColorRGB Renderer::Shade(const Vertex_Out& vertex, const Material& material) const
+{
+	const Vector3 lightDirection{ .577f, -.577f, .577f };
+
+	// Normal
+	const Vector3 binormal{ Vector3::Cross(vertex.normal, vertex.tangent) };
+	const Matrix tangentSpaceAxis{ vertex.tangent, binormal, vertex.normal, Vector3::Zero };
+
+	const ColorRGB normalMapSample{ material.pNormal->Sample(vertex.uv) };
+	Vector3 normal{ normalMapSample.ToVector3() * 2.f - Vector3::One };
+	normal = tangentSpaceAxis.TransformPoint(normal);
+	normal.Normalize();
+
+
+	const float observedArea{ Vector3::Dot(normal, -lightDirection) };
+	if (observedArea <= 0)
+	{
+		return colors::Black;
+	}
+
+
+	constexpr float lightIntensity{ 7.f };
+	constexpr float shininess{ 25.f };
+	const ColorRGB ambient{ .025f, .025f, .025f };
+	const ColorRGB light{ ColorRGB(1,1,1) * lightIntensity };
+
+
+	// Diffuse
+	const ColorRGB diffuseMapSample{ material.pDiffuse->Sample(vertex.uv) };
+	const ColorRGB diffuse{ BRDF::Lambert(1.f, diffuseMapSample)};
+
+	const ColorRGB specularMapSample{ material.pSpecular->Sample(vertex.uv) };
+	const ColorRGB glossinessMapSample{ material.pGloss->Sample(vertex.uv) };
+	const ColorRGB glossiness{ glossinessMapSample * shininess };
+
+	const ColorRGB specular{ BRDF::Phong(
+		specularMapSample,
+		glossiness,
+		lightDirection,
+		vertex.viewDirection,
+		normal
+	) };
+
+	return light * (ambient + diffuse + specular) * observedArea;
 }
 
 bool Renderer::SaveBufferToImage() const

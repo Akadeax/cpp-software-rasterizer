@@ -1,11 +1,10 @@
 #pragma once
 #include "Maths.h"
+#include "Texture.h"
 #include "vector"
 
 namespace dae
 {
-	class Texture;
-
 	struct Vertex
 	{
 		Vector3 position{};
@@ -44,8 +43,12 @@ namespace dae
 		Matrix worldMatrix{};
 	};
 
-	struct Material
+	class Material
 	{
-		Texture* pTexture;
+	public:
+		Texture* pDiffuse;
+		Texture* pNormal;
+		Texture* pSpecular;
+		Texture* pGloss;
 	};
 }

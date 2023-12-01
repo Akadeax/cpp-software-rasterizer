@@ -16,7 +16,7 @@ namespace dae
 			float w0{ 1 }, w1{ 1 }, w2{ 1 };
 		};
 
-		inline TriResult HitTest_ScreenTriangle(Vector2 screenPos, const Vertex_Out& v0,  const Vertex_Out& v1, const Vertex_Out& v2)
+		TriResult HitTest_ScreenTriangle(Vector2 screenPos, const Vertex_Out& v0,  const Vertex_Out& v1, const Vertex_Out& v2)
 		{
 			const float triArea{ std::abs(Vector2::Cross(v1.position - v0.position, v2.position - v0.position)) };
 
