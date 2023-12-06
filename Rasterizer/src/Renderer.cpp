@@ -35,17 +35,17 @@ Renderer::Renderer(SDL_Window* pWindow) :
 	Mesh vehicle{};
 	vehicle.worldMatrix = Matrix::CreateTranslation(0, 0, 50.f);
 
-	Utils::ParseOBJ("Resources/vehicle.obj", vehicle.vertices, vehicle.indices);
+	Utils::ParseOBJ("../_Resources/vehicle.obj", vehicle.vertices, vehicle.indices);
 
 	m_SceneMeshes = {
 		vehicle
 	};
 
 	vehicle.materialId = AddMaterial(
-		"Resources/vehicle_diffuse.png",
-		"Resources/vehicle_normal.png",
-		"Resources/vehicle_specular.png",
-		"Resources/vehicle_gloss.png"
+		"../_Resources/vehicle_diffuse.png",
+		"../_Resources/vehicle_normal.png",
+		"../_Resources/vehicle_specular.png",
+		"../_Resources/vehicle_gloss.png"
 	);
 }
 
@@ -104,7 +104,6 @@ void Renderer::Render()
 			break;
 
 		case PrimitiveTopology::TriangleStrip:
-
 			bool clockwise{ true };
 			for (size_t i{ 0 }; i < mesh.indices.size() - 2; ++i)
 			{

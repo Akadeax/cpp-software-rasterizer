@@ -1,1 +1,2 @@
 C:\dev\DAE\Year2\GP1\GP1_Rasterizer_Patrick_Nellessen_2DAE09\UnitTests\x64\Debug\UnitTests.vcxproj.CopyComplete
+E:\dev\Programming\CPP\Projects\cpp-software-rasterizer\UnitTests\x64\Debug\UnitTests.vcxproj.CopyComplete

@@ -1,2 +1,3 @@
-﻿  test.cpp
-  UnitTests.vcxproj -> C:\dev\DAE\Year2\GP1\GP1_Rasterizer_Patrick_Nellessen_2DAE09\x64\Debug\UnitTests.exe
+﻿  pch.cpp
+  test.cpp
+  UnitTests.vcxproj -> E:\dev\Programming\CPP\Projects\cpp-software-rasterizer\x64\Debug\UnitTests.exe
