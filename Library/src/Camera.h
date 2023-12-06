@@ -31,8 +31,8 @@ namespace dae
 		float cameraRotationSpeed{ 0.04f };
 		float cameraTranslationSpeed{ 25.f };
 
-		float nearPlane{ 1.f };
-		float farPlane{ 1000.f };
+		float nearPlane{ 0.1f };
+		float farPlane{ 100.f };
 
 		void Initialize(float _fovAngle = 90.f, Vector3 _origin = {0.f,0.f,0.f}, float _aspectRatio = 1.66f)
 		{

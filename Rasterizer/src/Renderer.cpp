@@ -28,7 +28,7 @@ Renderer::Renderer(SDL_Window* pWindow) :
 	//Initialize Camera
 	m_Camera.Initialize(
 		45.f,
-		{ .0f,0.f,0.f },
+		{ .0f,5.f,-64.f },
 		static_cast<float>(m_Width) / static_cast<float>(m_Height)
 	);
 
@@ -64,10 +64,11 @@ void Renderer::Update(const Timer* pTimer)
 {
 	m_Camera.Update(pTimer);
 
-	const Matrix translation{ Matrix::CreateTranslation(0, 0, 50.f) };
-	const Matrix rotation{ Matrix::CreateRotationY(pTimer->GetTotal()) };
+	if (m_Rotating) m_CurrentRotation += PI_DIV_4 * pTimer->GetElapsed();
 
-	m_SceneMeshes[0].worldMatrix = rotation * translation;
+	const Matrix rotation{ Matrix::CreateRotationY(m_CurrentRotation) };
+
+	m_SceneMeshes[0].worldMatrix = rotation;
 }
 
 void Renderer::Render()
@@ -198,6 +199,21 @@ void Renderer::CycleRenderMode()
 	m_RenderMode = static_cast<RenderMode>((static_cast<int>(m_RenderMode) + 1) % (static_cast<int>(RenderMode::depth) + 1));
 }
 
+void Renderer::CycleRotationMode()
+{
+	m_Rotating = !m_Rotating;
+}
+
+void Renderer::CycleShadingMode()
+{
+	m_ShadingMode = static_cast<ShadingMode>((static_cast<int>(m_ShadingMode) + 1) % (static_cast<int>(ShadingMode::specular) + 1));
+}
+
+void Renderer::CycleNormalMode()
+{
+	m_UsingNormalMap = !m_UsingNormalMap;
+}
+
 void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const Vertex_Out& v2, const Material& mat, float* depthBuffer) const
 {
 	if (!GeometryUtils::CheckRange(v0.position.x, v0.position.y, v0.position.z, m_Width, m_Height, 1) ||
@@ -256,10 +272,12 @@ void Renderer::RenderScreenTri(const Vertex_Out& v0, const Vertex_Out& v1, const
 
 				if (m_RenderMode == RenderMode::depth)
 				{
-					const float depthVal{ Remap(projectedDepth, 0.85f, 1.f) };
-					finalColor = colors::White * std::clamp(depthVal, 0.f, 1.f);
+					const float remapMin{ 0.995f };
+					const float remapMax{ 1.0f };
+					const float depthColor{ (Clamp(projectedDepth, remapMin, remapMax) - remapMin) / (remapMax - remapMin) };
+					finalColor = ColorRGB{ depthColor,depthColor,depthColor };
 				}
-				else 
+				else
 				{
 #pragma region Interpolation
 					const Vector4 interpolatedPosition{
@@ -366,6 +384,7 @@ ColorRGB Renderer::Shade(const Vertex_Out& vertex, const Material& material) con
 	normal = tangentSpaceAxis.TransformPoint(normal);
 	normal.Normalize();
 
+	if (!m_UsingNormalMap) normal = vertex.normal;
 
 	const float observedArea{ Vector3::Dot(normal, -lightDirection) };
 	if (observedArea <= 0)
@@ -373,12 +392,9 @@ ColorRGB Renderer::Shade(const Vertex_Out& vertex, const Material& material) con
 		return colors::Black;
 	}
 
-
 	constexpr float lightIntensity{ 7.f };
 	constexpr float shininess{ 25.f };
-	const ColorRGB ambient{ .025f, .025f, .025f };
-	const ColorRGB light{ ColorRGB(1,1,1) * lightIntensity };
-
+	const ColorRGB ambient{ .03f, .03f, .03f };
 
 	// Diffuse
 	const ColorRGB diffuseMapSample{ material.pDiffuse->Sample(vertex.uv) };
@@ -396,7 +412,19 @@ ColorRGB Renderer::Shade(const Vertex_Out& vertex, const Material& material) con
 		normal
 	) };
 
-	return light * (ambient + diffuse + specular) * observedArea;
+	switch (m_ShadingMode)
+	{
+	case ShadingMode::combined:
+		return ((colors::White * lightIntensity * diffuse) + ambient + specular) * observedArea;
+	case ShadingMode::observedArea:
+		return ColorRGB{ observedArea,observedArea,observedArea };
+	case ShadingMode::diffuse:
+		return colors::White * lightIntensity * diffuse * observedArea;
+	case ShadingMode::specular:
+		return specular;
+	}
+
+	return {};
 }
 
 bool Renderer::SaveBufferToImage() const

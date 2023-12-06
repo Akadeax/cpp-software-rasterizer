@@ -25,6 +25,14 @@ namespace dae
 			standard, depth
 		};
 
+		enum class ShadingMode
+		{
+			combined,
+			observedArea,
+			diffuse,
+			specular
+		};
+
 		explicit Renderer(SDL_Window* pWindow);
 		~Renderer();
 
@@ -43,6 +51,9 @@ namespace dae
 		Vector4 NdcToScreen(Vector4 ndc) const;
 
 		void CycleRenderMode();
+		void CycleRotationMode();
+		void CycleShadingMode();
+		void CycleNormalMode();
 
 	private:
 		std::vector<Mesh> m_SceneMeshes{};
@@ -60,6 +71,11 @@ namespace dae
 		int m_Height{};
 
 		RenderMode m_RenderMode{};
+		ShadingMode m_ShadingMode{};
+		bool m_Rotating{ true };
+		bool m_UsingNormalMap{ true };
+
+		float m_CurrentRotation{ 0.f };
 
 		void RenderScreenTri(
 			const Vertex_Out& v0,
@@ -77,6 +93,7 @@ namespace dae
 		);
 
 		ColorRGB Shade(const Vertex_Out& vertex, const Material& material) const;
+
 
 	};
 }

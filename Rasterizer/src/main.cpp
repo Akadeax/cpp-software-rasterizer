@@ -77,10 +77,18 @@ int main(int argc, char* args[])
 				case SDL_SCANCODE_F4:
 					pRenderer->CycleRenderMode();
 					break;
+				case SDL_SCANCODE_F5:
+					pRenderer->CycleRotationMode();
+					break;
+				case SDL_SCANCODE_F6:
+					pRenderer->CycleNormalMode();
+					break;
+				case SDL_SCANCODE_F7:
+					pRenderer->CycleShadingMode();
+					break;
 				default:
 					break;
 				}
-				break;
 			}
 		}
 
